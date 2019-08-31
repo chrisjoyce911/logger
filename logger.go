@@ -23,6 +23,7 @@ const (
 const (
 	//InstanceZapLogger will be used to create Zap instance for the logger
 	InstanceZapLogger int = iota
+	InstanceLogrusLogger
 )
 
 var (
