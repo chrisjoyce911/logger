@@ -61,15 +61,26 @@ type Configuration struct {
 
 //NewLogger returns an instance of Logger
 func NewLogger(config Configuration, loggerInstance int) error {
-	if loggerInstance == InstanceZapLogger {
+	switch loggerInstance {
+	case InstanceZapLogger:
 		logger, err := newZapLogger(config)
 		if err != nil {
 			return err
 		}
 		log = logger
 		return nil
+
+	case InstanceLogrusLogger:
+		logger, err := newLogrusLogger(config)
+		if err != nil {
+			return err
+		}
+		log = logger
+		return nil
+
+	default:
+		return errInvalidLoggerInstance
 	}
-	return errInvalidLoggerInstance
 }
 
 func Debugf(format string, args ...interface{}) {
