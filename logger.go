@@ -1,97 +1,132 @@
 package logger
 
-import "errors"
+import (
+	"io"
+	"os"
 
-// A global variable so that log functions can be directly accessed
-var log Logger
-
-//Fields Type to pass when we want to call WithFields for structured logging
-type Fields map[string]interface{}
-
-const (
-	//Debug has verbose message
-	Debug = "debug"
-	//Info is default log level
-	Info = "info"
-	//Warn is for logging messages about possible issues
-	Warn = "warn"
-	//Error is for logging errors
-	Error = "error"
-	//Fatal is for logging fatal messages. The sytem shutsdown after logging the message.
-	Fatal = "fatal"
+	"github.com/sirupsen/logrus"
+	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-const (
-//InstanceLogrusLogger
-)
-
-var (
-	errInvalidLoggerInstance = errors.New("Invalid logger instance")
-)
-
-//Logger is our contract for the logger
-type Logger interface {
-	Debugf(format string, args ...interface{})
-
-	Infof(format string, args ...interface{})
-
-	Warnf(format string, args ...interface{})
-
-	Errorf(format string, args ...interface{})
-
-	Fatalf(format string, args ...interface{})
-
-	Panicf(format string, args ...interface{})
-
-	WithFields(keyValues Fields) Logger
+type logrusLogEntry struct {
+	entry *logrus.Entry
 }
 
-// Configuration stores the config for the logger
-// For some loggers there can only be one level across writers, for such the level of Console is picked by default
-type Configuration struct {
-	EnableConsole     bool
-	ConsoleJSONFormat bool
-	ConsoleLevel      string
-	EnableFile        bool
-	FileJSONFormat    bool
-	FileLevel         string
-	FileLocation      string
+type logrusLogger struct {
+	logger *logrus.Logger
 }
 
-//NewLogger returns an instance of logger
-func NewLogger(config Configuration, loggerInstance int) error {
-	logger, err := newLogrusLogger(config)
-	if err != nil {
-		return err
+func getFormatter(isJSON bool) logrus.Formatter {
+	if isJSON {
+		return &logrus.JSONFormatter{}
 	}
-	log = logger
-	return nil
+	return &logrus.TextFormatter{
+		FullTimestamp:          true,
+		DisableLevelTruncation: true,
+	}
 }
 
-func Debugf(format string, args ...interface{}) {
-	log.Debugf(format, args...)
+func newLogrusLogger(config Configuration) (Logger, error) {
+	logLevel := config.ConsoleLevel
+	if logLevel == "" {
+		logLevel = config.FileLevel
+	}
+
+	level, err := logrus.ParseLevel(logLevel)
+	if err != nil {
+		return nil, err
+	}
+
+	stdOutHandler := os.Stdout
+	fileHandler := &lumberjack.Logger{
+		Filename: config.FileLocation,
+		MaxSize:  100,
+		Compress: true,
+		MaxAge:   28,
+	}
+	lLogger := &logrus.Logger{
+		Out:       stdOutHandler,
+		Formatter: getFormatter(config.ConsoleJSONFormat),
+		Hooks:     make(logrus.LevelHooks),
+		Level:     level,
+	}
+
+	if config.EnableConsole && config.EnableFile {
+		lLogger.SetOutput(io.MultiWriter(stdOutHandler, fileHandler))
+	} else {
+		if config.EnableFile {
+			lLogger.SetOutput(fileHandler)
+			lLogger.SetFormatter(getFormatter(config.FileJSONFormat))
+		}
+	}
+
+	return &logrusLogger{
+		logger: lLogger,
+	}, nil
 }
 
-func Infof(format string, args ...interface{}) {
-	log.Infof(format, args...)
+func (l *logrusLogger) Debugf(format string, args ...interface{}) {
+	l.logger.Debugf(format, args...)
 }
 
-func Warnf(format string, args ...interface{}) {
-	log.Warnf(format, args...)
+func (l *logrusLogger) Infof(format string, args ...interface{}) {
+	l.logger.Infof(format, args...)
 }
 
-func Errorf(format string, args ...interface{}) {
-	log.Errorf(format, args...)
+func (l *logrusLogger) Warnf(format string, args ...interface{}) {
+	l.logger.Warnf(format, args...)
 }
 
-func Fatalf(format string, args ...interface{}) {
-	log.Fatalf(format, args...)
+func (l *logrusLogger) Errorf(format string, args ...interface{}) {
+	l.logger.Errorf(format, args...)
 }
 
-func Panicf(format string, args ...interface{}) {
-	log.Panicf(format, args...)
+func (l *logrusLogger) Fatalf(format string, args ...interface{}) {
+	l.logger.Fatalf(format, args...)
 }
 
-func WithFields(keyValues Fields) Logger {
-	return log.WithFields(keyValues)
+func (l *logrusLogger) Panicf(format string, args ...interface{}) {
+	l.logger.Fatalf(format, args...)
+}
+
+func (l *logrusLogger) WithFields(fields Fields) Logger {
+	return &logrusLogEntry{
+		entry: l.logger.WithFields(convertToLogrusFields(fields)),
+	}
+}
+
+func (l *logrusLogEntry) Debugf(format string, args ...interface{}) {
+	l.Debugf(format, args...)
+}
+
+func (l *logrusLogEntry) Infof(format string, args ...interface{}) {
+	l.Infof(format, args...)
+}
+
+func (l *logrusLogEntry) Warnf(format string, args ...interface{}) {
+	l.Warnf(format, args...)
+}
+
+func (l *logrusLogEntry) Errorf(format string, args ...interface{}) {
+	l.Errorf(format, args...)
+}
+
+func (l *logrusLogEntry) Fatalf(format string, args ...interface{}) {
+	l.Fatalf(format, args...)
+}
+
+func (l *logrusLogEntry) Panicf(format string, args ...interface{}) {
+	l.Fatalf(format, args...)
+}
+
+func (l *logrusLogEntry) WithFields(fields Fields) Logger {
+	return l.WithFields(fields)
+}
+
+func convertToLogrusFields(fields Fields) logrus.Fields {
+	logrusFields := logrus.Fields{}
+	for index, val := range fields {
+		logrusFields[index] = val
+	}
+	return logrusFields
 }
