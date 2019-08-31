@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
 type logrusLogEntry struct {
