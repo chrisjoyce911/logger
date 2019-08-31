@@ -22,8 +22,7 @@ const (
 )
 
 const (
-	InstanceZapLogger int = iota
-	InstanceLogrusLogger
+//InstanceLogrusLogger
 )
 
 var (
@@ -61,26 +60,12 @@ type Configuration struct {
 
 //NewLogger returns an instance of logger
 func NewLogger(config Configuration, loggerInstance int) error {
-	switch loggerInstance {
-	case InstanceZapLogger:
-		logger, err := newZapLogger(config)
-		if err != nil {
-			return err
-		}
-		log = logger
-		return nil
-
-	case InstanceLogrusLogger:
-		logger, err := newLogrusLogger(config)
-		if err != nil {
-			return err
-		}
-		log = logger
-		return nil
-
-	default:
-		return errInvalidLoggerInstance
+	logger, err := newLogrusLogger(config)
+	if err != nil {
+		return err
 	}
+	log = logger
+	return nil
 }
 
 func Debugf(format string, args ...interface{}) {
