@@ -23,7 +23,7 @@ const (
 
 const (
 	InstanceZapLogger int = iota
-	InstanceLogrusLogger
+	InstanceLogrusLogger int = iota
 )
 
 var (
